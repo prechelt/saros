@@ -36,7 +36,6 @@ import saros.editor.remote.UserEditorStateManager;
 import saros.editor.text.LineRange;
 import saros.editor.text.TextSelection;
 import saros.filesystem.IFile;
-import saros.filesystem.IProject;
 import saros.filesystem.IReferencePoint;
 import saros.filesystem.IReferencePointManager;
 import saros.filesystem.IResource;
@@ -45,7 +44,6 @@ import saros.intellij.editor.annotations.AnnotationManager;
 import saros.intellij.eventhandler.IProjectEventHandler.ProjectEventHandlerType;
 import saros.intellij.eventhandler.editor.editorstate.ViewportAdjustmentExecutor;
 import saros.intellij.filesystem.Filesystem;
-import saros.intellij.filesystem.IntelliJProjectImpl;
 import saros.intellij.filesystem.IntelliJReferencePointManager;
 import saros.intellij.filesystem.VirtualFileConverter;
 import saros.observables.FileReplacementInProgressObservable;
@@ -255,8 +253,7 @@ public class EditorManager extends AbstractActivityProducer implements IEditorMa
         public void resourcesAdded(final IReferencePoint referencePoint) {
           IReferencePointManager referencePointManager =
               session.getComponent(IReferencePointManager.class);
-          executeInUIThreadSynchronous(
-              () -> addProjectResources(referencePointManager.getProject(referencePoint)));
+          executeInUIThreadSynchronous(() -> addProjectResources(referencePoint));
         }
 
         /**
@@ -413,10 +410,10 @@ public class EditorManager extends AbstractActivityProducer implements IEditorMa
   /**
    * Adds all currently open editors belonging to the passed project to the pool of open editors.
    *
-   * @param project the added project
+   * @param referencePoint the added reference point
    */
-  private void addProjectResources(IProject project) {
-    Module module = project.adaptTo(IntelliJProjectImpl.class).getModule();
+  private void addProjectResources(IReferencePoint referencePoint) {
+    Module module = intelliJReferencePointManager.getModule(referencePoint);
     FileIndex moduleFileIndex = ModuleRootManager.getInstance(module).getFileIndex();
     Project intellijProject = module.getProject();
 
@@ -452,7 +449,7 @@ public class EditorManager extends AbstractActivityProducer implements IEditorMa
           continue;
         }
 
-        Editor editor = localEditorHandler.openEditor(openFile, project, false);
+        Editor editor = localEditorHandler.openEditor(openFile, module, false);
 
         openFileMapping.put(path, editor);
       }
