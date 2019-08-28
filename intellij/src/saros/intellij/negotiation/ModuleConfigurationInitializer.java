@@ -17,8 +17,7 @@ import org.jetbrains.jps.model.java.JavaResourceRootType;
 import org.jetbrains.jps.model.java.JavaSourceRootType;
 import org.jetbrains.jps.model.module.JpsModuleSourceRootType;
 import saros.filesystem.IReferencePoint;
-import saros.filesystem.IReferencePointManager;
-import saros.intellij.filesystem.IntelliJProjectImpl;
+import saros.intellij.filesystem.IntelliJReferencePointManager;
 import saros.repackaged.picocontainer.Startable;
 import saros.session.ISarosSession;
 import saros.session.ISessionListener;
@@ -33,6 +32,8 @@ public class ModuleConfigurationInitializer implements Startable {
 
   private final ISarosSession session;
 
+  private final IntelliJReferencePointManager intelliJReferencePointManager;
+
   private final Map<Module, Map<String, String>> queuedModuleOptions;
 
   private final ISessionListener sessionListener =
@@ -44,8 +45,11 @@ public class ModuleConfigurationInitializer implements Startable {
         }
       };
 
-  public ModuleConfigurationInitializer(ISarosSession session) {
+  public ModuleConfigurationInitializer(
+      ISarosSession session, IntelliJReferencePointManager intelliJReferencePointManager) {
     this.session = session;
+
+    this.intelliJReferencePointManager = intelliJReferencePointManager;
 
     this.queuedModuleOptions = new ConcurrentHashMap<>();
   }
@@ -80,13 +84,7 @@ public class ModuleConfigurationInitializer implements Startable {
    * @param referencePoint the <code>IReferencePoint</code> representing the shared module
    */
   private void applyModuleConfiguration(@NotNull IReferencePoint referencePoint) {
-    IReferencePointManager referencePointManger =
-        session.getComponent(IReferencePointManager.class);
-    Module module =
-        referencePointManger
-            .getProject(referencePoint)
-            .adaptTo(IntelliJProjectImpl.class)
-            .getModule();
+    Module module = intelliJReferencePointManager.getModule(referencePoint);
 
     Map<String, String> configurationOptions = queuedModuleOptions.remove(module);
 
