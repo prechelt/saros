@@ -85,6 +85,18 @@ public class ResourceAdapterFactory {
   }
 
   /**
+   * Converts a Saros {@link IPath} path back to Eclipse {@link org.eclipse.core.runtime.IPath} path
+   *
+   * @param path Saros path which should be converted back
+   * @return the converted Eclipse path
+   */
+  public static org.eclipse.core.runtime.IPath convertBack(IPath path) {
+    if (path == null) return null;
+
+    return ((EclipsePathImpl) path).getDelegate();
+  }
+
+  /**
    * Converts a collection of Eclipse resources to Saros Core file system resources.
    *
    * @param in collection of Eclipse resources
