@@ -14,7 +14,8 @@ import org.jetbrains.jps.model.module.JpsModuleSourceRootType;
 public class ModuleConfiguration {
   private final String sdkName;
   private final String moduleType;
-  private final Map<JpsModuleSourceRootType<? extends JpsElement>, String[]> rootPaths;
+  private final String[] contentRootNames;
+  private final Map<String, Map<JpsModuleSourceRootType<? extends JpsElement>, String[]>> rootPaths;
 
   private final boolean existingModule;
 
@@ -23,29 +24,47 @@ public class ModuleConfiguration {
 
     this.moduleType = options.get(ModuleConfigurationProvider.MODULE_TYPE_KEY);
 
+    this.existingModule = existingModule;
+
+    this.contentRootNames =
+        ModuleConfigurationProvider.split(
+            options.get(ModuleConfigurationProvider.CONTENT_ROOT_NAMES_KEY));
+
     this.rootPaths = new HashMap<>();
 
-    rootPaths.put(
-        JavaSourceRootType.SOURCE,
-        ModuleConfigurationProvider.split(
-            options.get(ModuleConfigurationProvider.SOURCE_ROOTS_KEY)));
+    if (contentRootNames == null) {
+      return;
+    }
 
-    rootPaths.put(
-        JavaSourceRootType.TEST_SOURCE,
-        ModuleConfigurationProvider.split(
-            options.get(ModuleConfigurationProvider.TEST_SOURCE_ROOTS_KEY)));
+    for (String contentRootName : contentRootNames) {
 
-    rootPaths.put(
-        JavaResourceRootType.RESOURCE,
-        ModuleConfigurationProvider.split(
-            options.get(ModuleConfigurationProvider.RESOURCE_ROOTS_KEY)));
+      Map<JpsModuleSourceRootType<? extends JpsElement>, String[]> rootMapping = new HashMap<>();
 
-    rootPaths.put(
-        JavaResourceRootType.TEST_RESOURCE,
-        ModuleConfigurationProvider.split(
-            options.get(ModuleConfigurationProvider.TEST_RESOURCE_ROOTS_KEY)));
+      rootMapping.put(
+          JavaSourceRootType.SOURCE,
+          ModuleConfigurationProvider.split(
+              options.get(ModuleConfigurationProvider.SOURCE_ROOTS_KEY_PREFIX + contentRootName)));
 
-    this.existingModule = existingModule;
+      rootMapping.put(
+          JavaSourceRootType.TEST_SOURCE,
+          ModuleConfigurationProvider.split(
+              options.get(
+                  ModuleConfigurationProvider.TEST_SOURCE_ROOTS_KEY_PREFIX + contentRootName)));
+
+      rootMapping.put(
+          JavaResourceRootType.RESOURCE,
+          ModuleConfigurationProvider.split(
+              options.get(
+                  ModuleConfigurationProvider.RESOURCE_ROOTS_KEY_PREFIX + contentRootName)));
+
+      rootMapping.put(
+          JavaResourceRootType.TEST_RESOURCE,
+          ModuleConfigurationProvider.split(
+              options.get(
+                  ModuleConfigurationProvider.TEST_RESOURCE_ROOTS_KEY_PREFIX + contentRootName)));
+
+      rootPaths.put(contentRootName, rootMapping);
+    }
   }
 
   /**
@@ -69,14 +88,34 @@ public class ModuleConfiguration {
   }
 
   /**
-   * Returns the source root paths.
+   * Returns the names of the content roots of the module.
    *
-   * @return the source root paths, values might be mapped to <code>null</code> if no paths were
-   *     received for the root type
+   * @return the names of the content roots of the module or <code>null</code> of no names were
+   *     received
+   */
+  @Nullable
+  public String[] getContentRootNames() {
+    return contentRootNames;
+  }
+
+  /**
+   * Returns the source root paths for the given content root.
+   *
+   * @return the source root paths for the given content root, values might be mapped to <code>null
+   *     </code> if no paths were received for the given content root or a specific root type
    */
   @NotNull
-  public Map<JpsModuleSourceRootType<? extends JpsElement>, String[]> getRootPaths() {
-    return Collections.unmodifiableMap(rootPaths);
+  public Map<JpsModuleSourceRootType<? extends JpsElement>, String[]> getRootPaths(
+      @NotNull String contentRootName) {
+
+    Map<JpsModuleSourceRootType<? extends JpsElement>, String[]> contentRootPaths =
+        rootPaths.get(contentRootName);
+
+    if (contentRootPaths == null) {
+      return Collections.emptyMap();
+    }
+
+    return Collections.unmodifiableMap(contentRootPaths);
   }
 
   /**

@@ -97,6 +97,7 @@ public class ShareWithUserAction extends AnAction {
       throw new UnsupportedOperationException();
     }
 
+    // TODO catch exception
     return new IntelliJProjectImpl(module);
   }
 

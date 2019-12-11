@@ -48,7 +48,7 @@ public class ModuleConfigurationInitializer implements Startable {
 
         @Override
         public void resourcesAdded(IProject project) {
-          applyModuleConfiguration(project);
+          updateModuleConfiguration(project);
         }
       };
 
@@ -93,7 +93,7 @@ public class ModuleConfigurationInitializer implements Startable {
    *
    * @param wrappedModule the <code>IProject</code> representing the shared module
    */
-  private void applyModuleConfiguration(@NotNull IProject wrappedModule) {
+  private void updateModuleConfiguration(@NotNull IProject wrappedModule) {
     Module module = wrappedModule.adaptTo(IntelliJProjectImpl.class).getModule();
 
     ModuleConfiguration moduleConfiguration = queuedModuleOptions.remove(module);
@@ -115,15 +115,39 @@ public class ModuleConfigurationInitializer implements Startable {
 
     ContentEntry[] contentEntries = ModuleRootManager.getInstance(module).getContentEntries();
 
-    if (contentEntries.length != 1) {
-      log.error("Encountered shared module with multiple content roots - " + module);
+    if (contentEntries.length == 0) {
+      log.error(
+          "Encountered shared module \""
+              + module
+              + "\" without any content roots. Can not update source configuration.");
 
       return;
     }
 
-    ContentEntry contentEntry = contentEntries[0];
+    boolean differs = false;
 
-    if (!configurationDiffers(module, contentEntry, moduleConfiguration.getRootPaths())) {
+    for (ContentEntry contentEntry : contentEntries) {
+      VirtualFile contentEntryFile = contentEntry.getFile();
+
+      if (contentEntryFile == null) {
+        log.debug(
+            "Skipping checking content root \""
+                + contentEntry.getUrl()
+                + "\" for shared module \""
+                + module
+                + "\" as it does not have a valid local representation.");
+
+        continue;
+      }
+
+      differs =
+          configurationDiffers(
+              module, contentEntry, moduleConfiguration.getRootPaths(contentEntryFile.getName()));
+
+      if (differs) break;
+    }
+
+    if (!differs) {
       return;
     }
 
@@ -217,24 +241,31 @@ public class ModuleConfigurationInitializer implements Startable {
 
     ContentEntry[] contentEntries = modifiableRootModel.getContentEntries();
 
-    if (contentEntries.length != 1) {
-      log.error("Encountered shared module with multiple content roots - " + module);
-
-      return;
-    }
-
-    ContentEntry contentEntry = contentEntries[0];
-
-    VirtualFile contentEntryFile = contentEntry.getFile();
-
-    if (contentEntryFile == null) {
+    if (contentEntries.length == 0) {
       log.error(
-          "Content root for shared module does not have a valid local representation - " + module);
+          "Encountered shared module \""
+              + module
+              + "\" without any content roots. Can not reset source configuration.");
 
       return;
     }
 
-    Arrays.stream(contentEntry.getSourceFolders()).forEach(contentEntry::removeSourceFolder);
+    for (ContentEntry contentEntry : contentEntries) {
+      VirtualFile contentEntryFile = contentEntry.getFile();
+
+      if (contentEntryFile == null) {
+        log.error(
+            "Could not reset configuration for content root \""
+                + contentEntry.getUrl()
+                + "\" for shared module \""
+                + module
+                + "\" as it does not have a valid local representation.");
+
+        continue;
+      }
+
+      Arrays.stream(contentEntry.getSourceFolders()).forEach(contentEntry::removeSourceFolder);
+    }
   }
 
   /**
@@ -271,26 +302,33 @@ public class ModuleConfigurationInitializer implements Startable {
 
     ContentEntry[] contentEntries = modifiableRootModel.getContentEntries();
 
-    if (contentEntries.length != 1) {
-      log.error("Encountered shared module with multiple content roots - " + module);
-
-      return;
-    }
-
-    ContentEntry contentEntry = contentEntries[0];
-
-    VirtualFile contentEntryFile = contentEntry.getFile();
-
-    if (contentEntryFile == null) {
+    if (contentEntries.length == 0) {
       log.error(
-          "Content root for shared module does not have a valid local representation - " + module);
+          "Encountered shared module \""
+              + module
+              + "\" without any content roots. Can not apply source configuration.");
 
       return;
     }
 
-    moduleConfiguration
-        .getRootPaths()
-        .forEach((type, paths) -> addRoot(module, contentEntry, contentEntryFile, type, paths));
+    for (ContentEntry contentEntry : contentEntries) {
+      VirtualFile contentEntryFile = contentEntry.getFile();
+
+      if (contentEntryFile == null) {
+        log.error(
+            "Could not apply configuration for content root \""
+                + contentEntry.getUrl()
+                + "\" for shared module \""
+                + module
+                + "\" as it does not have a valid local representation.");
+
+        continue;
+      }
+
+      moduleConfiguration
+          .getRootPaths(contentEntryFile.getName())
+          .forEach((type, paths) -> addRoot(module, contentEntry, contentEntryFile, type, paths));
+    }
   }
 
   /**

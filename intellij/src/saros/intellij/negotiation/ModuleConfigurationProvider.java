@@ -8,6 +8,7 @@ import com.intellij.openapi.roots.SourceFolder;
 import com.intellij.openapi.vfs.VirtualFile;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,10 +35,11 @@ public class ModuleConfigurationProvider implements ProjectDataProvider {
 
   static final String MODULE_TYPE_KEY = "MODULE_TYPE";
   static final String SDK_KEY = "SKD";
-  static final String SOURCE_ROOTS_KEY = "SOURCE_ROOTS";
-  static final String TEST_SOURCE_ROOTS_KEY = "TEST_SOURCE_ROOTS";
-  static final String RESOURCE_ROOTS_KEY = "RESOURCE_ROOTS";
-  static final String TEST_RESOURCE_ROOTS_KEY = "TEST_RESOURCE_ROOTS";
+  static final String CONTENT_ROOT_NAMES_KEY = "CONTENT_ROOT_NAMES";
+  static final String SOURCE_ROOTS_KEY_PREFIX = "SOURCE_ROOTS-";
+  static final String TEST_SOURCE_ROOTS_KEY_PREFIX = "TEST_SOURCE_ROOTS-";
+  static final String RESOURCE_ROOTS_KEY_PREFIX = "RESOURCE_ROOTS-";
+  static final String TEST_RESOURCE_ROOTS_KEY_PREFIX = "TEST_RESOURCE_ROOTS-";
 
   private static final CharSequence DELIMITER = ":";
 
@@ -64,7 +66,7 @@ public class ModuleConfigurationProvider implements ProjectDataProvider {
   }
 
   // TODO consider also including module dependencies
-  // TODO adjust once multiple content roots are possible
+  // TODO consider handling excluded roots
   @Override
   @NotNull
   public Map<String, String> getMapping(@NotNull IProject project) {
@@ -90,45 +92,61 @@ public class ModuleConfigurationProvider implements ProjectDataProvider {
 
     ContentEntry[] contentEntries = moduleRootManager.getContentEntries();
 
-    if (contentEntries.length != 1) {
+    if (contentEntries.length == 0) {
       log.error(
           "Encountered shared module \""
               + module
-              + "\" with multiple content roots. Can not provide source configuration.");
+              + "\" without any content roots. Can not provide source configuration.");
 
       return optionsMap;
     }
 
-    ContentEntry contentEntry = contentEntries[0];
+    List<String> contentRootNames = new ArrayList<>();
 
-    VirtualFile contentRoot = contentEntry.getFile();
+    for (ContentEntry contentEntry : contentEntries) {
+      VirtualFile contentRoot = contentEntry.getFile();
 
-    if (contentRoot == null) {
-      log.error(
-          "Encountered content root without a valid local representation for shared module \""
-              + module
-              + "\". Can not provide source configuration.");
+      if (contentRoot == null) {
+        log.error(
+            "Encountered content root \'"
+                + contentEntry.getUrl()
+                + "\' for module \'"
+                + module
+                + "\' without a valid local representation. Can not provide source configuration.");
 
-      return optionsMap;
+        continue;
+      }
+
+      String contentRootName = contentRoot.getName();
+      contentRootNames.add(contentRootName);
+
+      Path contentRootPath = Paths.get(contentRoot.getPath());
+
+      String sourceRoots =
+          flatten(contentRootPath, contentEntry.getSourceFolders(JavaSourceRootType.SOURCE));
+      optionsMap.put(SOURCE_ROOTS_KEY_PREFIX + contentRootName, sourceRoots);
+
+      String testSourceRoots =
+          flatten(contentRootPath, contentEntry.getSourceFolders(JavaSourceRootType.TEST_SOURCE));
+      optionsMap.put(TEST_SOURCE_ROOTS_KEY_PREFIX + contentRootName, testSourceRoots);
+
+      String resourceRoots =
+          flatten(contentRootPath, contentEntry.getSourceFolders(JavaResourceRootType.RESOURCE));
+      optionsMap.put(RESOURCE_ROOTS_KEY_PREFIX + contentRootName, resourceRoots);
+
+      String testResourceRoots =
+          flatten(
+              contentRootPath, contentEntry.getSourceFolders(JavaResourceRootType.TEST_RESOURCE));
+      optionsMap.put(TEST_RESOURCE_ROOTS_KEY_PREFIX + contentRootName, testResourceRoots);
     }
 
-    Path contentRootPath = Paths.get(contentRoot.getPath());
+    String contentRootNamesFlattened =
+        contentRootNames
+            .stream()
+            .map(ModuleConfigurationProvider::escape)
+            .collect(Collectors.joining(DELIMITER));
 
-    String sourceRoots =
-        flatten(contentRootPath, contentEntry.getSourceFolders(JavaSourceRootType.SOURCE));
-    optionsMap.put(SOURCE_ROOTS_KEY, sourceRoots);
-
-    String testSourceRoots =
-        flatten(contentRootPath, contentEntry.getSourceFolders(JavaSourceRootType.TEST_SOURCE));
-    optionsMap.put(TEST_SOURCE_ROOTS_KEY, testSourceRoots);
-
-    String resourceRoots =
-        flatten(contentRootPath, contentEntry.getSourceFolders(JavaResourceRootType.RESOURCE));
-    optionsMap.put(RESOURCE_ROOTS_KEY, resourceRoots);
-
-    String testResourceRoots =
-        flatten(contentRootPath, contentEntry.getSourceFolders(JavaResourceRootType.TEST_RESOURCE));
-    optionsMap.put(TEST_RESOURCE_ROOTS_KEY, testResourceRoots);
+    optionsMap.put(CONTENT_ROOT_NAMES_KEY, contentRootNamesFlattened);
 
     return optionsMap;
   }

@@ -22,6 +22,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.text.MessageFormat;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -179,7 +180,7 @@ public class AddProjectToSessionWizard extends Wizard {
          * @param project the project to create the module in
          * @param moduleName the name for the new module
          * @param moduleBasePath the base path for the new module
-         * @see AddProjectToSessionWizard#createBaseModule(String, String, Path, Project)
+         * @see AddProjectToSessionWizard#createBaseModule(String, String, Path, Project, String[])
          */
         private void doNewModule(
             @NotNull Project project, @NotNull String moduleName, @NotNull Path moduleBasePath) {
@@ -191,9 +192,14 @@ public class AddProjectToSessionWizard extends Wizard {
               new ModuleConfiguration(moduleParameters, false);
 
           String moduleType = moduleConfiguration.getModuleType();
+          String[] contentRootNames = moduleConfiguration.getContentRootNames();
 
-          if (moduleType == null) {
-            LOG.error("Aborted module creation as no module type was received.");
+          if (moduleType == null || contentRootNames == null) {
+            LOG.error(
+                "Aborted module creation as not all needed data was received - module type: "
+                    + moduleType
+                    + ", content root names: "
+                    + Arrays.toString(contentRootNames));
 
             cancelNegotiation("Failed to create shared module");
 
@@ -207,7 +213,8 @@ public class AddProjectToSessionWizard extends Wizard {
           Module module;
 
           try {
-            module = createBaseModule(moduleName, moduleType, moduleBasePath, project);
+            module =
+                createBaseModule(moduleName, moduleType, moduleBasePath, project, contentRootNames);
 
           } catch (IOException e) {
             LOG.error("Could not create the shared module " + moduleName + ".", e);
@@ -281,6 +288,8 @@ public class AddProjectToSessionWizard extends Wizard {
 
             return;
           }
+
+          // TODO check if #content roots matches or adjust local content roots to match remote
 
           Map<String, String> moduleParameters =
               negotiation.getProjectNegotiationData(remoteProjectID).getAdditionalProjectData();
@@ -418,7 +427,8 @@ public class AddProjectToSessionWizard extends Wizard {
       @NotNull String moduleName,
       @NotNull String moduleType,
       @NotNull Path targetBasePath,
-      @NotNull Project targetProject)
+      @NotNull Project targetProject,
+      @NotNull String[] contentRootNames)
       throws FileNotFoundException, IOException, ModuleWithNameAlreadyExists {
 
     for (Module module : ModuleManager.getInstance(targetProject).getModules()) {
@@ -466,7 +476,31 @@ public class AddProjectToSessionWizard extends Wizard {
                     ModuleRootManager.getInstance(module).getModifiableModel();
 
                 try {
-                  modifiableRootModel.addContentEntry(moduleRoot);
+                  VirtualFile base;
+
+                  if (Arrays.asList(contentRootNames).contains(moduleName)) {
+                    VirtualFile moduleCommonRoot = moduleRoot.getParent();
+                    if (moduleCommonRoot == null) {
+                      throw new FileNotFoundException(
+                          "Could not find base directory for module \"" + module + "\".");
+                    }
+
+                    base = moduleCommonRoot;
+
+                  } else {
+                    base = moduleRoot;
+                  }
+
+                  for (String contentRootName : contentRootNames) {
+                    VirtualFile root = base.findChild(contentRootName);
+
+                    if (root == null) {
+                      root = base.createChildDirectory(this, contentRootName);
+                    }
+
+                    modifiableRootModel.addContentEntry(root);
+                  }
+
                   modifiableRootModel.commit();
 
                 } finally {

@@ -126,7 +126,23 @@ public final class IntelliJFolderImpl extends IntelliJResourceImpl implements IF
   @NotNull
   @Override
   public IContainer getParent() {
-    if (path.segmentCount() == 1) return project;
+    if (path.segmentCount() == 2) return project;
+
+    return getParentInternal();
+  }
+
+  /**
+   * Method to obtaining the parent resource, including the content root. This is needed when
+   * creating resources in a content root.
+   *
+   * @return the parent resource
+   * @throws IllegalStateException if the the resource is a content root
+   */
+  @NotNull
+  private IFolder getParentInternal() {
+    if (path.segmentCount() == 1) {
+      throw new IllegalStateException("Can't get parent of content root resource.");
+    }
 
     return new IntelliJFolderImpl(project, path.removeLastSegments(1));
   }
@@ -210,7 +226,7 @@ public final class IntelliJFolderImpl extends IntelliJResourceImpl implements IF
           @Override
           public Void compute() throws IOException {
 
-            final IResource parent = getParent();
+            final IResource parent = getParentInternal();
 
             final VirtualFile parentFile = project.findVirtualFile(parent.getProjectRelativePath());
 

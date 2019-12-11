@@ -11,7 +11,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -43,29 +45,31 @@ public final class IntelliJProjectImpl extends IntelliJResourceImpl implements I
    * objects for modules with fewer or more than one content root can not be created.
    *
    * @param module an IntelliJ <i>module</i>
-   * @throws IllegalArgumentException if the given module does not have exactly one content root
+   * @throws IllegalArgumentException if the given module does not have at least one content root or
+   *     has multiple content roots with the same name
    */
   public IntelliJProjectImpl(@NotNull final Module module) {
     this.module = module;
 
     this.project = module.getProject();
 
-    // Still used to ensure that the module has exactly one content root
+    // Still used to enforce module restrictions
     getModuleContentRoot(module);
   }
 
   /**
    * Returns the content root of the given module.
    *
-   * <p>This method is used to enforce the current restriction that shared modules must contain
-   * exactly one content root.
+   * <p>This method is used to enforce the current restriction that shared modules must contain at
+   * least one content root.
    *
    * @param module the module to get the content root for
    * @return the content root of the given module
-   * @throws IllegalArgumentException if the given module does not have exactly one content root
+   * @throws IllegalArgumentException if the given module does not have at least one content root or
+   *     has multiple content roots with the same name
    */
   @NotNull
-  private static VirtualFile getModuleContentRoot(@NotNull Module module) {
+  private static List<VirtualFile> getModuleContentRoot(@NotNull Module module) {
 
     ModuleRootManager moduleRootManager = ModuleRootManager.getInstance(module);
 
@@ -73,18 +77,84 @@ public final class IntelliJProjectImpl extends IntelliJResourceImpl implements I
 
     int numberOfContentRoots = contentRoots.length;
 
-    if (numberOfContentRoots != 1) {
+    if (numberOfContentRoots == 0) {
       throw new IllegalArgumentException(
-          "Modules shared with Saros currently must contain exactly one content root. The given "
-              + "module "
+          "Modules shared with Saros currently must contain at least one content root. The given module "
               + module
-              + " has "
-              + numberOfContentRoots
-              + " content roots: "
-              + Arrays.toString(contentRoots));
+              + " does not have any content roots.");
     }
 
-    return contentRoots[0];
+    Set<String> rootNames = new HashSet<>();
+
+    for (VirtualFile root : contentRoots) {
+      String rootName = root.getName();
+
+      if (!rootNames.contains(rootName)) {
+        rootNames.add(rootName);
+
+      } else {
+        throw new IllegalArgumentException(
+            "Modules shared with Saros currently must contain distinctive content roots. The given module "
+                + module
+                + " has multiple content roots with the name \""
+                + rootName
+                + "\".");
+      }
+    }
+
+    return Arrays.asList(contentRoots);
+  }
+
+  /**
+   * Returns the content root with the given name for the module.
+   *
+   * @param rootName the name of the content root
+   * @return the content root with the given name for the module
+   * @throws IllegalArgumentException if no content root with the given name was found
+   */
+  @NotNull
+  private VirtualFile getModuleContentRoot(@NotNull String rootName) {
+    List<VirtualFile> contentRoots = getModuleContentRoot(module);
+
+    VirtualFile contentRoot =
+        contentRoots
+            .stream()
+            .filter(root -> root.getName().equals(rootName))
+            .findFirst()
+            .orElse(null);
+
+    if (contentRoot == null) {
+      throw new IllegalArgumentException(
+          "Could not find content root " + rootName + " for module " + module);
+    }
+
+    return contentRoot;
+  }
+
+  /**
+   * Returns the content root the given <code>VirtualFile</code> belongs to.
+   *
+   * @param virtualFile the virtual file to get the content root for
+   * @return the content root the given <code>VirtualFile</code> belongs to
+   * @throws IllegalArgumentException if the module is not located under any content root of the
+   *     module
+   */
+  @NotNull
+  private VirtualFile getModuleContentRoot(@NotNull VirtualFile virtualFile) {
+    List<VirtualFile> contentRoots = getModuleContentRoot(module);
+
+    Path filePath = Paths.get(virtualFile.getPath());
+
+    for (VirtualFile contentRoot : contentRoots) {
+      Path rootPath = Paths.get(contentRoot.getPath());
+
+      if (filePath.startsWith(rootPath)) {
+        return contentRoot;
+      }
+    }
+
+    throw new IllegalArgumentException(
+        "File " + virtualFile + " is not located under any content root of module " + module);
   }
 
   /**
@@ -118,22 +188,28 @@ public final class IntelliJProjectImpl extends IntelliJResourceImpl implements I
   public IResource[] members() throws IOException {
     final List<IResource> result = new ArrayList<>();
 
-    final VirtualFile[] children = getModuleContentRoot(module).getChildren();
+    for (VirtualFile contentRoot : getModuleContentRoot(module)) {
+      IPath contentRootName = IntelliJPathImpl.fromString(contentRoot.getName());
 
-    ModuleFileIndex moduleFileIndex = ModuleRootManager.getInstance(module).getFileIndex();
+      final VirtualFile[] children = contentRoot.getChildren();
 
-    for (final VirtualFile child : children) {
+      ModuleFileIndex moduleFileIndex = ModuleRootManager.getInstance(module).getFileIndex();
 
-      if (!Filesystem.runReadAction(() -> moduleFileIndex.isInContent(child))) {
-        continue;
+      for (final VirtualFile child : children) {
+
+        if (!Filesystem.runReadAction(() -> moduleFileIndex.isInContent(child))) {
+          continue;
+        }
+
+        final IPath childPath = IntelliJPathImpl.fromString(child.getName());
+
+        IPath qualifiedChildPath = contentRootName.append(childPath);
+
+        result.add(
+            child.isDirectory()
+                ? new IntelliJFolderImpl(this, qualifiedChildPath)
+                : new IntelliJFileImpl(this, qualifiedChildPath));
       }
-
-      final IPath childPath = IntelliJPathImpl.fromString(child.getName());
-
-      result.add(
-          child.isDirectory()
-              ? new IntelliJFolderImpl(this, childPath)
-              : new IntelliJFileImpl(this, childPath));
     }
 
     return result.toArray(new IResource[0]);
@@ -205,12 +281,13 @@ public final class IntelliJProjectImpl extends IntelliJResourceImpl implements I
       return null;
     }
 
-    VirtualFile moduleRoot = getModuleContentRoot(module);
+    VirtualFile moduleRoot = getModuleContentRoot(file);
 
     try {
-      Path relativePath = Paths.get(moduleRoot.getPath()).relativize(Paths.get(file.getPath()));
+      Path contentRootPath = Paths.get(moduleRoot.getPath()).getParent();
+      Path qualifiedRelativePath = contentRootPath.relativize(Paths.get(file.getPath()));
 
-      return IntelliJPathImpl.fromString(relativePath.toString());
+      return IntelliJPathImpl.fromString(qualifiedRelativePath.toString());
 
     } catch (IllegalArgumentException e) {
       LOG.warn(
@@ -244,10 +321,16 @@ public final class IntelliJProjectImpl extends IntelliJResourceImpl implements I
     throw new IOException("move is not supported");
   }
 
+  /**
+   * Returns the location of the module file. This is done as there is no central location that all
+   * resources relate to. Instead, resources are located relative to different content roots.
+   *
+   * @return the location of the module file
+   */
   @NotNull
   @Override
   public IPath getLocation() {
-    return IntelliJPathImpl.fromString(getModuleContentRoot(module).getPath());
+    return IntelliJPathImpl.fromString(module.getModuleFilePath());
   }
 
   @Nullable
@@ -355,14 +438,24 @@ public final class IntelliJProjectImpl extends IntelliJResourceImpl implements I
    * @param path relative path to the file
    * @return the virtual file or <code>null</code> if it does not exists in the VFS snapshot, is
    *     ignored, belongs to a sub-module, or the given path is absolute.
+   * @throws IllegalArgumentException if the path does not contain a content root qualifier (has a
+   *     name count of 0)
    * @see #isIgnored()
    */
   @Nullable
-  public VirtualFile findVirtualFile(final IPath path) {
+  public VirtualFile findVirtualFile(IPath path) {
 
     if (path.isAbsolute()) return null;
 
-    VirtualFile moduleRoot = getModuleContentRoot(module);
+    if (path.segmentCount() == 0) {
+      throw new IllegalArgumentException("Encountered path without a content root qualifier.");
+    }
+
+    String rootName = path.segment(0);
+
+    path = path.removeFirstSegments(1);
+
+    VirtualFile moduleRoot = getModuleContentRoot(rootName);
 
     if (path.segmentCount() == 0) return moduleRoot;
 
