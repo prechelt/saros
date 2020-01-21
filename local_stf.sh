@@ -1,4 +1,4 @@
-#!/bin/bash 
+#!/bin/bash -x
 
 # Used by called and sourced scripts
 export CONFIG_DIR=travis/config \
@@ -53,7 +53,7 @@ echo "::Pull images, start and configure containers"
 $SCRIPT_DIR_HOST/stf/setup_stf_container.sh $PWD
 if [ "$?" != "0" ]; then
     echo "::Failed to setup the containers"
-    finalize
+    finalize "$user"
     exit 1
 fi
 
@@ -63,5 +63,5 @@ rc="$?"
 if [ "$rc" != "0" ]; then
     echo "::Failed during the stf test execution"
 fi
-finalize
+finalize "$user"
 exit "$rc"

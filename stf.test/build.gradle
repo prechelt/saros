@@ -24,15 +24,20 @@ dependencies {
     stfTestCompile configurations.testConfig
     // TODO: The custom saros eclipse plugin adds all dependencies to implementation
     stfTestCompile configurations.implementation
-    stfFlakyAndFailingTest configurations.stfTestCompile
     testCompile configurations.stfTestCompile // for running the tests in eclipse
+
+    stfFlakyAndFailingTestCompile project(':saros.stf')
+    stfFlakyAndFailingTestCompile project(path: ':saros.stf', configuration: 'testing')
+    stfFlakyAndFailingTestCompile configurations.testConfig
+    stfFlakyAndFailingTestCompile configurations.implementation
+    testCompile configurations.stfFlakyAndFailingTestCompile // for running the tests in eclipse
 }
 
 class StfTest extends Test {
   StfTest() {
     this.setGroup('Verification')
     this.setDescription('Runs the stf tests. Requires a corresponding test environment')
-    this.setTestClassesDirs(this.getProject().getSourceSets().getByName('stfTest').getRuntimeClasspath())
+    systemProperty 'saros.stf.client.configuration.files', System.getProperty('stf.client.configuration.files', '')
 
     this.testLogging{ loggingContainer ->
         loggingContainer.setShowStandardStreams(true)
@@ -42,20 +47,22 @@ class StfTest extends Test {
     List<String> failedTests = new ArrayList<String>();
     this.afterTest { descriptor, result ->
         if( result.resultType == org.gradle.api.tasks.testing.TestResult.ResultType.FAILURE ){
-            ext.failedStfTests << "${descriptor.className}.${descriptor.name}"
+            failedTests << "${descriptor.className}.${descriptor.name}"
         }
     }
 
     this.afterSuite { suite, result ->
-        if ( !suite.parent && !ext.failedStfTests.isEmpty() ) {
+        if ( !suite.parent && !failedTests.isEmpty() ) {
             logger.lifecycle("Failed tests:")
-            ext.failedStfTests.each { logger.lifecycle(it) }
+            failedTests.each { logger.lifecycle(it) }
         }
     }
   }
 }
 
 task stfTest (type: StfTest, dependsOn: [':saros.eclipse:build']) {
+    testClassesDirs = sourceSets.stfTest.output.classesDirs
+    classpath = sourceSets.stfTest.runtimeClasspath
     include '**/stf/test/**/*Test.*'
     exclude '**/whiteboard/**'
 
@@ -65,7 +72,10 @@ task stfTest (type: StfTest, dependsOn: [':saros.eclipse:build']) {
 }
 
 task stfFlakyAndFailingTest (type: StfTest, dependsOn: [':saros.eclipse:build']) {
+    testClassesDirs = sourceSets.stfFlakyAndFailingTest.output.classesDirs
+    classpath = sourceSets.stfFlakyAndFailingTest.runtimeClasspath
     ignoreFailures = true
+    include '**/stf/test/**/*Test.*'
     useJUnit {
         includeCategories 'saros.stf.test.categories.FlakyTests', 'saros.stf.test.categories.FailingTests'
     }
