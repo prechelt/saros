@@ -11,12 +11,14 @@ import java.rmi.RemoteException;
 import java.util.Random;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 import saros.stf.client.StfTestCase;
 import saros.stf.client.tester.SarosTester;
 import saros.stf.client.util.EclipseTestThread;
 import saros.stf.client.util.Util;
 import saros.stf.shared.Constants.TypeOfCreateProject;
 import saros.stf.test.stf.Constants;
+import saros.stf.test.categories.FlakyTests;
 
 public class EditDuringInvitationStressTest extends StfTestCase {
 
@@ -28,6 +30,7 @@ public class EditDuringInvitationStressTest extends StfTestCase {
     select(ALICE, BOB, CARL);
   }
 
+  @Category(FlakyTests.class)
   @Test
   public void testEditMultipleClassesDuringInvitation() throws Exception {
 
