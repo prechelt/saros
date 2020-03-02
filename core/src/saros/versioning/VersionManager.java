@@ -11,7 +11,7 @@ import org.jivesoftware.smack.filter.AndFilter;
 import org.jivesoftware.smack.packet.IQ;
 import org.jivesoftware.smack.packet.Packet;
 import saros.annotations.Component;
-import saros.communication.extensions.VersionExchangeExtension;
+import saros.communication.extensions.InfoExchangeExtension;
 import saros.context.IContextKeyBindings.SarosVersion;
 import saros.net.IReceiver;
 import saros.net.ITransmitter;
@@ -43,7 +43,7 @@ public class VersionManager {
   private final ConcurrentHashMap<String, String> localInfo = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<XMPPContact, ClientInfo> remoteInfo = new ConcurrentHashMap<>();
 
-  private final PacketListener versionInfoListener =
+  private final PacketListener infoListener =
       packet -> {
         log.debug("received info from " + packet.getFrom());
         handleInfo(packet);
@@ -77,9 +77,9 @@ public class VersionManager {
     contactsService.addListener(contactsUpdateListener);
 
     receiver.addPacketListener(
-        versionInfoListener,
+        infoListener,
         new AndFilter(
-            VersionExchangeExtension.PROVIDER.getIQFilter(),
+            InfoExchangeExtension.PROVIDER.getIQFilter(),
             packet -> ((IQ) packet).getType() == IQ.Type.SET));
   }
 
@@ -146,7 +146,7 @@ public class VersionManager {
     Optional<JID> sarosJid = contact.getSarosJid();
     if (!sarosJid.isPresent()) return;
 
-    IQ packet = VersionExchangeExtension.PROVIDER.createIQ(new VersionExchangeExtension(localInfo));
+    IQ packet = InfoExchangeExtension.PROVIDER.createIQ(new InfoExchangeExtension(localInfo));
     packet.setType(IQ.Type.SET);
     packet.setTo(sarosJid.get().toString());
     try {
@@ -160,7 +160,7 @@ public class VersionManager {
     Optional<XMPPContact> contact = contactsService.getContact(packet.getFrom());
     if (!contact.isPresent()) return;
 
-    VersionExchangeExtension versionInfo = VersionExchangeExtension.PROVIDER.getPayload(packet);
+    InfoExchangeExtension versionInfo = InfoExchangeExtension.PROVIDER.getPayload(packet);
     if (versionInfo == null) {
       log.warn("contact: " + contact + ", VersionExchangeExtension packet is malformed");
       return;
