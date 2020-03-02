@@ -23,23 +23,24 @@ package saros.versioning;
 
 import static org.junit.Assert.assertEquals;
 
+import java.util.HashMap;
+import org.jivesoftware.smack.packet.IQ;
 import org.junit.Before;
 import org.junit.Test;
+import saros.communication.extensions.VersionExchangeExtension;
 import saros.net.IReceiver;
 import saros.net.ITransmitter;
 import saros.net.xmpp.JID;
+import saros.net.xmpp.contact.XMPPContactsService;
 import saros.test.fakes.net.FakeConnectionFactory;
 import saros.test.fakes.net.FakeConnectionFactory.FakeConnectionFactoryResult;
+import saros.test.mocks.SarosMocks;
 
 public class VersionManagerTest {
 
   private ITransmitter aliceTransmitter;
-  private ITransmitter bobTransmitter;
-
   private IReceiver aliceReceiver;
-  private IReceiver bobReceiver;
-
-  private VersionManager versionManagerRemote;
+  private XMPPContactsService aliceContactsService;
   private VersionManager versionManagerLocal;
 
   private final JID aliceJID = new JID("alice@alice.com/Saros");
@@ -51,17 +52,22 @@ public class VersionManagerTest {
         FakeConnectionFactory.createConnections(aliceJID, bobJID).get();
 
     aliceReceiver = result.getReceiver(aliceJID);
-    bobReceiver = result.getReceiver(bobJID);
-
     aliceTransmitter = result.getTransmitter(aliceJID);
-    bobTransmitter = result.getTransmitter(bobJID);
   }
 
   private void init(Version local, Version remote) {
+    aliceContactsService = SarosMocks.contactsServiceMockFor(bobJID);
+    versionManagerLocal =
+        new VersionManager(local.toString(), aliceReceiver, aliceTransmitter, aliceContactsService);
 
-    versionManagerLocal = new VersionManager(local.toString(), aliceReceiver, aliceTransmitter);
+    HashMap<String, String> info = new HashMap<>();
+    info.put(ClientInfo.VERSION_KEY, remote.toString());
+    VersionExchangeExtension versionExchangeResponse = new VersionExchangeExtension(info);
 
-    versionManagerRemote = new VersionManager(remote.toString(), bobReceiver, bobTransmitter);
+    IQ reply = VersionExchangeExtension.PROVIDER.createIQ(versionExchangeResponse);
+    reply.setType(IQ.Type.SET);
+    reply.setTo(aliceJID.getRAW());
+    aliceReceiver.processPacket(reply);
   }
 
   @Test
