@@ -1,6 +1,8 @@
 package saros.versioning;
 
 import java.io.IOException;
+import java.util.Enumeration;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.log4j.Logger;
@@ -20,7 +22,8 @@ import saros.net.xmpp.contact.XMPPContact;
 import saros.net.xmpp.contact.XMPPContactsService;
 
 /**
- * Component for figuring out whether two Saros plug-in instances with known Version are compatible.
+ * Component for figuring out whether two Saros plug-in instances with known Version are compatible
+ * and to exchange Infos outside of Sessions.
  *
  * <p>This class compares if local and remote version (not checking qualifier) are the same.
  */
@@ -42,7 +45,7 @@ public class VersionManager {
 
   private final PacketListener versionInfoListener =
       packet -> {
-        log.debug("received version info from " + packet.getFrom());
+        log.debug("received info from " + packet.getFrom());
         handleInfo(packet);
       };
 
@@ -103,6 +106,38 @@ public class VersionManager {
   }
 
   /**
+   * Set a Information that should be broadcasted to other Contacts.
+   *
+   * @param key
+   * @param value if null key is removed from local info
+   */
+  public void setLocalInfo(String key, String value) {
+    Objects.requireNonNull(key, "key is null");
+
+    if (value == null) localInfo.remove(key);
+    else localInfo.put(key, value);
+
+    if (remoteInfo.isEmpty()) return;
+    // send new info to all known online contacts
+    Enumeration<XMPPContact> contacts = remoteInfo.keys();
+    while (contacts.hasMoreElements()) sendInfo(contacts.nextElement());
+  }
+
+  /**
+   * If available get Information received by other Contacts.
+   *
+   * @param contact
+   * @param key
+   * @return Optional the String associated with this contact and key
+   */
+  public Optional<String> getRemoteInfo(XMPPContact contact, String key) {
+    ClientInfo clientInfo = remoteInfo.get(contact);
+    if (clientInfo == null) return Optional.empty();
+
+    return Optional.ofNullable(clientInfo.getInfo(key));
+  }
+
+  /**
    * Sends Info Packet to a Contact if it has Saros Support.
    *
    * @param contact
@@ -132,6 +167,7 @@ public class VersionManager {
     }
 
     ClientInfo clientInfo = ClientInfo.parseFeatures(packet.getFrom(), versionInfo.getData());
+    log.debug("received: " + clientInfo);
     remoteInfo.put(contact.get(), clientInfo);
   }
 
