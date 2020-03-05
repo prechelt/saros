@@ -1,4 +1,4 @@
-package saros.versioning;
+package saros.communication.info;
 
 import java.util.Collections;
 import java.util.HashMap;

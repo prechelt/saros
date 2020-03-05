@@ -5,6 +5,7 @@ import saros.account.XMPPAccountStore;
 import saros.communication.chat.muc.MultiUserChatService;
 import saros.communication.chat.single.SingleUserChatService;
 import saros.communication.connection.ConnectionHandler;
+import saros.communication.info.InfoManager;
 import saros.concurrent.watchdog.IsInconsistentObservable;
 import saros.editor.colorstorage.ColorIDSetStorage;
 import saros.monitoring.remote.RemoteProgressManager;
@@ -37,7 +38,6 @@ import saros.repackaged.picocontainer.MutablePicoContainer;
 import saros.session.ColorNegotiationHook;
 import saros.session.ProjectNegotiationTypeHook;
 import saros.session.SarosSessionManager;
-import saros.versioning.VersionManager;
 
 /**
  * This is the basic core factory for Saros. All components that are created by this factory
@@ -59,7 +59,7 @@ public class CoreContextFactory extends AbstractContextFactory {
       Component.create(ConnectionHandler.class),
 
       // Version support
-      Component.create(VersionManager.class),
+      Component.create(InfoManager.class),
       Component.create(MultiUserChatService.class),
       Component.create(SingleUserChatService.class),
       Component.create(SarosSessionManager.class),

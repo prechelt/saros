@@ -1,4 +1,4 @@
-package saros.versioning;
+package saros.communication.info;
 
 import java.io.IOException;
 import java.util.Enumeration;
@@ -28,13 +28,12 @@ import saros.net.xmpp.contact.XMPPContactsService;
  * <p>This class compares if local and remote version (not checking qualifier) are the same.
  */
 @Component(module = "core")
-public class VersionManager {
+public class InfoManager {
   /* If you want to implement backward compatibility in a later version, as a suggestion:
    * acknowledge same major.minor version as compatible. Alternatively add a `backwards_compatibility`
    * key with the last working version as value and add a check for it.
    */
-
-  private static final Logger log = Logger.getLogger(VersionManager.class);
+  private static final Logger log = Logger.getLogger(InfoManager.class);
 
   private final Version localVersion;
   private final ITransmitter transmitter;
@@ -61,7 +60,7 @@ public class VersionManager {
         }
       };
 
-  public VersionManager(
+  public InfoManager(
       @SarosVersion String version,
       IReceiver receiver,
       ITransmitter transmitter,

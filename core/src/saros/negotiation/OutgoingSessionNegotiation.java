@@ -11,6 +11,9 @@ import saros.communication.extensions.InvitationAcknowledgedExtension;
 import saros.communication.extensions.InvitationCompletedExtension;
 import saros.communication.extensions.InvitationOfferingExtension;
 import saros.communication.extensions.InvitationParameterExchangeExtension;
+import saros.communication.info.Compatibility;
+import saros.communication.info.InfoManager;
+import saros.communication.info.VersionCompatibilityResult;
 import saros.exceptions.LocalCancellationException;
 import saros.exceptions.SarosCancellationException;
 import saros.monitoring.IProgressMonitor;
@@ -27,9 +30,6 @@ import saros.preferences.PreferenceStore;
 import saros.session.ISarosSession;
 import saros.session.ISarosSessionManager;
 import saros.session.User;
-import saros.versioning.Compatibility;
-import saros.versioning.VersionCompatibilityResult;
-import saros.versioning.VersionManager;
 
 /*
  * IMPORTANT: All messages in the cancellation exception are SHOWN to the end user !
@@ -51,7 +51,7 @@ public final class OutgoingSessionNegotiation extends SessionNegotiation {
   private PacketCollector invitationCompletedCollector;
   private PacketCollector invitationConnectionEstablishedCollector;
 
-  private final VersionManager versionManager;
+  private final InfoManager infoManager;
   private final XMPPContactsService contactsService;
 
   public OutgoingSessionNegotiation(
@@ -60,7 +60,7 @@ public final class OutgoingSessionNegotiation extends SessionNegotiation {
       ISarosSessionManager sessionManager,
       ISarosSession session,
       SessionNegotiationHookManager hookManager,
-      VersionManager versionManager,
+      InfoManager infoManager,
       XMPPContactsService contactsService,
       ITransmitter transmitter,
       IReceiver receiver) {
@@ -74,7 +74,7 @@ public final class OutgoingSessionNegotiation extends SessionNegotiation {
         receiver);
 
     this.sarosSession = session;
-    this.versionManager = versionManager;
+    this.infoManager = infoManager;
     this.contactsService = contactsService;
   }
 
@@ -126,7 +126,7 @@ public final class OutgoingSessionNegotiation extends SessionNegotiation {
        * <p>(1) Check whether Saros is available on the client's side.
        *
        * <p>(2) Check whether the client's Saros is compatible with own version (via the
-       * VersionManager).
+       * InfoManager).
        *
        * <p>(3a) Send a session invitation offering to the client.
        *
@@ -230,7 +230,7 @@ public final class OutgoingSessionNegotiation extends SessionNegotiation {
     log.debug(this + " : checking version compatibility");
     monitor.setTaskName("Checking version compatibility...");
 
-    VersionCompatibilityResult result = versionManager.determineVersionCompatibility(getPeer());
+    VersionCompatibilityResult result = infoManager.determineVersionCompatibility(getPeer());
 
     checkCancellation(CancelOption.DO_NOT_NOTIFY_PEER);
 

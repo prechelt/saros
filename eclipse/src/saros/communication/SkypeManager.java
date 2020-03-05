@@ -8,9 +8,9 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.apache.log4j.Logger;
 import org.eclipse.jface.preference.IPreferenceStore;
+import saros.communication.info.InfoManager;
 import saros.net.xmpp.contact.XMPPContact;
 import saros.preferences.PreferenceConstants;
-import saros.versioning.VersionManager;
 
 /**
  * A manager class that allows to discover if a given XMPP entity supports Skype and that allows to
@@ -20,20 +20,20 @@ public class SkypeManager {
 
   private static final Logger log = Logger.getLogger(SkypeManager.class);
 
-  private final VersionManager versionManager;
+  private final InfoManager infoManager;
   private final IPreferenceStore preferenceStore;
 
-  public SkypeManager(VersionManager versionManager, IPreferenceStore preferenceStore) {
-    this.versionManager = versionManager;
+  public SkypeManager(InfoManager infoManager, IPreferenceStore preferenceStore) {
+    this.infoManager = infoManager;
     this.preferenceStore = preferenceStore;
 
-    versionManager.setLocalInfo(PreferenceConstants.SKYPE_USERNAME, getLocalSkypeName());
+    infoManager.setLocalInfo(PreferenceConstants.SKYPE_USERNAME, getLocalSkypeName());
 
     /** Register for our preference store, so we can be notified if the Skype user name changes. */
     preferenceStore.addPropertyChangeListener(
         event -> {
           if (event.getProperty().equals(PreferenceConstants.SKYPE_USERNAME)) {
-            versionManager.setLocalInfo(PreferenceConstants.SKYPE_USERNAME, getLocalSkypeName());
+            infoManager.setLocalInfo(PreferenceConstants.SKYPE_USERNAME, getLocalSkypeName());
           }
         });
   }
@@ -45,7 +45,7 @@ public class SkypeManager {
    *     skype name or it is not known yet
    */
   public String getSkypeName(XMPPContact contact) {
-    return versionManager.getRemoteInfo(contact, PreferenceConstants.SKYPE_USERNAME).orElse(null);
+    return infoManager.getRemoteInfo(contact, PreferenceConstants.SKYPE_USERNAME).orElse(null);
   }
 
   /** @return the local Skype name or <code>null</code> if none is set. */

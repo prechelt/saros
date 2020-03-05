@@ -1,4 +1,4 @@
-package saros.versioning;
+package saros.communication.info;
 
 /** This class represents the result of a version compatibility negotiation. */
 public class VersionCompatibilityResult {

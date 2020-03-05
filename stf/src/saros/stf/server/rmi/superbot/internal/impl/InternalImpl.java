@@ -27,10 +27,10 @@ import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.launching.IVMInstall;
 import org.eclipse.jdt.launching.JavaRuntime;
 import org.eclipse.jdt.launching.LibraryLocation;
+import saros.communication.info.InfoManager;
+import saros.communication.info.Version;
 import saros.stf.server.StfRemoteObject;
 import saros.stf.server.rmi.superbot.internal.IInternal;
-import saros.versioning.Version;
-import saros.versioning.VersionManager;
 
 public final class InternalImpl extends StfRemoteObject implements IInternal {
 
@@ -70,7 +70,7 @@ public final class InternalImpl extends StfRemoteObject implements IInternal {
 
   private InternalImpl() {
     try {
-      localVersionField = VersionManager.class.getDeclaredField("localVersion");
+      localVersionField = InfoManager.class.getDeclaredField("localVersion");
       localVersionField.setAccessible(true);
     } catch (SecurityException e) {
       LOG.error("reflection failed", e);
@@ -104,9 +104,9 @@ public final class InternalImpl extends StfRemoteObject implements IInternal {
     try {
 
       if (originalVersion == null)
-        originalVersion = (Version) localVersionField.get(getVersionManager());
+        originalVersion = (Version) localVersionField.get(getInfoManager());
 
-      localVersionField.set(getVersionManager(), newVersion);
+      localVersionField.set(getInfoManager(), newVersion);
 
     } catch (IllegalArgumentException e) {
       LOG.error("unable to change saros version, reflection failed", e);
@@ -128,7 +128,7 @@ public final class InternalImpl extends StfRemoteObject implements IInternal {
     }
 
     try {
-      localVersionField.set(getVersionManager(), originalVersion);
+      localVersionField.set(getInfoManager(), originalVersion);
     } catch (IllegalArgumentException e) {
       LOG.error("unable to reset saros version, reflection failed", e);
       throw new RemoteException("unable to reset saros version, reflection failed", e);

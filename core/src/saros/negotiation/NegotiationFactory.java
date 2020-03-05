@@ -1,6 +1,7 @@
 package saros.negotiation;
 
 import java.util.List;
+import saros.communication.info.InfoManager;
 import saros.context.IContainerContext;
 import saros.editor.IEditorManager;
 import saros.filesystem.IChecksumCache;
@@ -17,10 +18,9 @@ import saros.session.ISarosSession;
 import saros.session.ISarosSessionManager;
 import saros.session.ProjectNegotiationTypeHook;
 import saros.session.User;
-import saros.versioning.VersionManager;
 
 public final class NegotiationFactory {
-  private final VersionManager versionManager;
+  private final InfoManager infoManager;
   private final SessionNegotiationHookManager hookManager;
 
   // TODO remove, do not use Smack Filetransfer
@@ -40,7 +40,7 @@ public final class NegotiationFactory {
   private final AdditionalProjectDataFactory additionalProjectDataFactory;
 
   public NegotiationFactory(
-      VersionManager versionManager,
+      InfoManager infoManager,
       SessionNegotiationHookManager hookManager,
       XMPPContactsService contactsService,
       FileReplacementInProgressObservable fileReplacementInProgressObservable,
@@ -59,7 +59,7 @@ public final class NegotiationFactory {
        */
       IContainerContext context) {
 
-    this.versionManager = versionManager;
+    this.infoManager = infoManager;
     this.hookManager = hookManager;
     this.contactsService = contactsService;
     this.context = context;
@@ -85,7 +85,7 @@ public final class NegotiationFactory {
         sessionManager,
         session,
         hookManager,
-        versionManager,
+        infoManager,
         contactsService,
         transmitter,
         receiver);

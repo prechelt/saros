@@ -19,7 +19,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-package saros.versioning;
+package saros.communication.info;
 
 import static org.junit.Assert.assertEquals;
 
@@ -36,12 +36,12 @@ import saros.test.fakes.net.FakeConnectionFactory;
 import saros.test.fakes.net.FakeConnectionFactory.FakeConnectionFactoryResult;
 import saros.test.mocks.SarosMocks;
 
-public class VersionManagerTest {
+public class InfoManagerTest {
 
   private ITransmitter aliceTransmitter;
   private IReceiver aliceReceiver;
   private XMPPContactsService aliceContactsService;
-  private VersionManager versionManagerLocal;
+  private InfoManager infoManagerLocal;
 
   private final JID aliceJID = new JID("alice@alice.com/Saros");
   private final JID bobJID = new JID("bob@bob.com/Saros");
@@ -57,8 +57,8 @@ public class VersionManagerTest {
 
   private void init(Version local, Version remote) {
     aliceContactsService = SarosMocks.contactsServiceMockFor(bobJID);
-    versionManagerLocal =
-        new VersionManager(local.toString(), aliceReceiver, aliceTransmitter, aliceContactsService);
+    infoManagerLocal =
+        new InfoManager(local.toString(), aliceReceiver, aliceTransmitter, aliceContactsService);
 
     HashMap<String, String> info = new HashMap<>();
     info.put(ClientInfo.VERSION_KEY, remote.toString());
@@ -78,7 +78,7 @@ public class VersionManagerTest {
 
     init(local, remote);
 
-    VersionCompatibilityResult result = versionManagerLocal.determineVersionCompatibility(bobJID);
+    VersionCompatibilityResult result = infoManagerLocal.determineVersionCompatibility(bobJID);
 
     assertEquals(Compatibility.OK, result.getCompatibility());
   }
@@ -91,7 +91,7 @@ public class VersionManagerTest {
 
     init(local, remote);
 
-    VersionCompatibilityResult result = versionManagerLocal.determineVersionCompatibility(bobJID);
+    VersionCompatibilityResult result = infoManagerLocal.determineVersionCompatibility(bobJID);
 
     assertEquals(Compatibility.OK, result.getCompatibility());
   }
@@ -104,7 +104,7 @@ public class VersionManagerTest {
 
     init(local, remote);
 
-    VersionCompatibilityResult result = versionManagerLocal.determineVersionCompatibility(bobJID);
+    VersionCompatibilityResult result = infoManagerLocal.determineVersionCompatibility(bobJID);
 
     assertEquals(Compatibility.OLDER, result.getCompatibility());
   }
@@ -117,7 +117,7 @@ public class VersionManagerTest {
 
     init(local, remote);
 
-    VersionCompatibilityResult result = versionManagerLocal.determineVersionCompatibility(bobJID);
+    VersionCompatibilityResult result = infoManagerLocal.determineVersionCompatibility(bobJID);
 
     assertEquals(Compatibility.NEWER, result.getCompatibility());
   }

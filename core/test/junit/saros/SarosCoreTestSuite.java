@@ -23,7 +23,7 @@ import org.junit.runners.Suite;
   saros.session.internal.TestSuite.class,
   saros.synchronize.TestSuite.class,
   saros.util.TestSuite.class,
-  saros.versioning.TestSuite.class,
+  saros.communication.info.TestSuite.class,
   saros.SarosCoreContextFactoryTest.class
 })
 public class SarosCoreTestSuite {

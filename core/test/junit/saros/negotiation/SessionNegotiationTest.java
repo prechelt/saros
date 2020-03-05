@@ -19,6 +19,10 @@ import org.junit.Before;
 import org.junit.Test;
 import saros.communication.extensions.InvitationAcknowledgedExtension;
 import saros.communication.extensions.InvitationOfferingExtension;
+import saros.communication.info.Compatibility;
+import saros.communication.info.InfoManager;
+import saros.communication.info.Version;
+import saros.communication.info.VersionCompatibilityResult;
 import saros.monitoring.NullProgressMonitor;
 import saros.negotiation.Negotiation.Status;
 import saros.negotiation.hooks.SessionNegotiationHookManager;
@@ -35,10 +39,6 @@ import saros.test.fakes.net.FakeConnectionFactory;
 import saros.test.fakes.net.FakeConnectionFactory.FakeConnectionFactoryResult;
 import saros.test.fakes.net.ThreadedReceiver;
 import saros.test.mocks.SarosMocks;
-import saros.versioning.Compatibility;
-import saros.versioning.Version;
-import saros.versioning.VersionCompatibilityResult;
-import saros.versioning.VersionManager;
 
 public class SessionNegotiationTest {
 
@@ -63,7 +63,7 @@ public class SessionNegotiationTest {
   private ITransmitter aliceTransmitter;
   private ITransmitter bobTransmitter;
 
-  private VersionManager versionManager;
+  private InfoManager infoManager;
 
   private IConnectionManager aliceConnectionManager;
   private IConnectionManager bobConnectionManager;
@@ -106,8 +106,8 @@ public class SessionNegotiationTest {
     expect(compatibilityResult.getLocalVersion()).andReturn(Version.INVALID);
     expect(compatibilityResult.getCompatibility()).andReturn(Compatibility.OK);
 
-    versionManager = createNiceMock(VersionManager.class);
-    expect(versionManager.determineVersionCompatibility(anyObject(JID.class)))
+    infoManager = createNiceMock(InfoManager.class);
+    expect(infoManager.determineVersionCompatibility(anyObject(JID.class)))
         .andReturn(compatibilityResult);
 
     aliceSession = createNiceMock(ISarosSession.class);
@@ -134,7 +134,7 @@ public class SessionNegotiationTest {
         .andReturn(bobSession)
         .once();
 
-    replay(aliceSessionManager, bobSessionManager, compatibilityResult, versionManager);
+    replay(aliceSessionManager, bobSessionManager, compatibilityResult, infoManager);
   }
 
   @After
@@ -154,7 +154,7 @@ public class SessionNegotiationTest {
             aliceSessionManager,
             aliceSession,
             new SessionNegotiationHookManager(),
-            versionManager,
+            infoManager,
             aliceXMPPContactsService,
             aliceTransmitter,
             aliceReceiver);
