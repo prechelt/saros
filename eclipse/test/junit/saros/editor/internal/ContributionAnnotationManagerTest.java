@@ -37,9 +37,9 @@ public class ContributionAnnotationManagerTest {
   private ContributionAnnotationManager manager;
   private ISarosSession sessionMock;
   private IPreferenceStore store;
+  private IAnnotationModel model;
 
   private Capture<ISessionListener> sessionListenerCapture;
-
   private static final int MAX_HISTORY_LENGTH =
       ContributionAnnotationManager.History.MAX_HISTORY_LENGTH;
 
@@ -47,7 +47,13 @@ public class ContributionAnnotationManagerTest {
   public void setUp() {
     store = new PreferenceStore();
     store.setValue(EclipsePreferenceConstants.SHOW_CONTRIBUTION_ANNOTATIONS, true);
+    createListenerMocks();
 
+    manager = new ContributionAnnotationManager(sessionMock, store);
+    model = new AnnotationModel();
+  }
+
+  private void createListenerMocks() {
     sessionListenerCapture = EasyMock.newCapture();
 
     sessionMock = EasyMock.createNiceMock(ISarosSession.class);
@@ -71,16 +77,12 @@ public class ContributionAnnotationManagerTest {
         .anyTimes();
 
     PowerMock.replayAll(sessionMock);
-
-    manager = new ContributionAnnotationManager(sessionMock, store);
   }
 
   @Test
   public void testHistoryRemoval() {
 
-    User alice = new User(new JID("alice@test"), false, false, null);
-
-    AnnotationModel model = new AnnotationModel();
+    User alice = createAliceTestUser();
 
     for (int i = 0; i <= MAX_HISTORY_LENGTH; i++) manager.insertAnnotation(model, i, 1, alice);
 
@@ -97,9 +99,7 @@ public class ContributionAnnotationManagerTest {
 
   @Test
   public void testHistoryRemovalAfterRefresh() {
-    User alice = new User(new JID("alice@test"), false, false, null);
-
-    AnnotationModel model = new AnnotationModel();
+    User alice = createAliceTestUser();
 
     for (int i = 0; i <= MAX_HISTORY_LENGTH; i++) manager.insertAnnotation(model, i, 1, alice);
 
@@ -113,87 +113,13 @@ public class ContributionAnnotationManagerTest {
   }
 
   @Test
-  public void testHistoryAfterSplit() {
-
-    final User alice = new User(new JID("alice@test"), false, false, null);
-    final User bob = new User(new JID("bob@test"), false, false, null);
-
-    final AnnotationModel model = new AnnotationModel();
-
-    manager.insertAnnotation(model, 5, 7, alice);
-    manager.insertAnnotation(model, 2, 15, bob);
-
-    manager.splitAnnotation(model, 9);
-
-    assertEquals("split does not affected all annotations", 4, getAnnotationCount(model));
-
-    int startIndex = 100;
-
-    for (int i = 0; i < MAX_HISTORY_LENGTH - 1; i++, startIndex++)
-      manager.insertAnnotation(model, startIndex, 1, alice);
-
-    assertEquals(
-        "splitted annotions should count as one annotion for the history",
-        4 + MAX_HISTORY_LENGTH - 1,
-        getAnnotationCount(model));
-
-    manager.insertAnnotation(model, startIndex++, 1, alice);
-
-    assertEquals(
-        "splitted annotions are not correctly removed from the history",
-        4 + MAX_HISTORY_LENGTH - 1 - 1,
-        getAnnotationCount(model));
-
-    for (int i = 0; i < MAX_HISTORY_LENGTH; i++, startIndex++)
-      manager.insertAnnotation(model, startIndex, 1, bob);
-
-    assertEquals(
-        "splitted annotions are not correctly removed from the history",
-        2 * MAX_HISTORY_LENGTH,
-        getAnnotationCount(model));
-  }
-
-  @Test
-  public void testAnnotationSplit() {
-
-    final User alice = new User(new JID("alice@test"), false, false, null);
-    final User bob = new User(new JID("bob@test"), false, false, null);
-
-    final AnnotationModel model = new AnnotationModel();
-
-    manager.insertAnnotation(model, 5, 7, alice);
-    manager.insertAnnotation(model, 2, 15, bob);
-
-    manager.splitAnnotation(model, 9);
-
-    final List<Position> positions = getAnnotationPositions(model);
-
-    assertEquals("split does not affected all annotations", 4, getAnnotationCount(model));
-
-    final Position expectA0 = new Position(5, 4); // 9 = 5 + 4
-    final Position expectA1 = new Position(9, 3); // 9 + 3 = 5 + 7
-    final Position expectB0 = new Position(2, 7); // 9 = 2 + 7
-    final Position expectB1 = new Position(9, 8); // 9 + 8 = 2 + 15
-
-    assertTrue("expected annotation region not found: " + expectA0, positions.contains(expectA0));
-    assertTrue("expected annotation region not found: " + expectA1, positions.contains(expectA1));
-    assertTrue("expected annotation region not found: " + expectB0, positions.contains(expectB0));
-    assertTrue("expected annotation region not found: " + expectB1, positions.contains(expectB1));
-  }
-
-  @Test
   public void testRemoveAllAnnotationsBySwitchingProperty() {
 
     final List<User> users =
         Arrays.asList(
-            new User(new JID("alice@test"), false, false, null),
-            new User(new JID("bob@test"), false, false, null),
-            new User(new JID("carl@test"), false, false, null),
-            new User(new JID("dave@test"), false, false, null));
+            createAliceTestUser(), createBobTestUser(), createCarlTestUser(), createDaveTestUser());
 
     int idx = 0;
-
-    final AnnotationModel model = new AnnotationModel();
 
     for (final User user : users)
       for (int i = 0; i < MAX_HISTORY_LENGTH; i++, idx++)
@@ -211,12 +137,10 @@ public class ContributionAnnotationManagerTest {
 
     final List<User> users = new ArrayList<>();
 
-    users.add(new User(new JID("alice@test"), false, false, null));
-    users.add(new User(new JID("bob@test"), false, false, null));
+    users.add(createAliceTestUser());
+    users.add(createBobTestUser());
 
     int idx = 0;
-
-    final AnnotationModel model = new AnnotationModel();
 
     for (final User user : users)
       for (int i = 0; i < MAX_HISTORY_LENGTH; i++, idx++)
@@ -235,12 +159,44 @@ public class ContributionAnnotationManagerTest {
     }
   }
 
+  @Test
+  public void testInsertAnnotationWithLengthGreaterOne() {
+    int annotationLength = 3;
+
+    manager.insertAnnotation(model, 5, annotationLength, createAliceTestUser());
+
+    List<Position> annotationPositions = getAnnotationPositions(model);
+
+    assertEquals(
+        "Annotation was not split into multiple annotation of length 1",
+        annotationLength,
+        annotationPositions.size());
+    assertTrue(annotationPositions.contains(new Position(5, 1)));
+    assertTrue(annotationPositions.contains(new Position(6, 1)));
+    assertTrue(annotationPositions.contains(new Position(7, 1)));
+  }
+
+  @Test
+  public void testInsertAnnotationWithLengthZero() {
+    manager.insertAnnotation(model, 3, 0, createAliceTestUser());
+    assertEquals("Annotation with length 0 was inserted", 0, getAnnotationCount(model));
+  }
+
+  @Test
+  public void testInsertAnnotationWithRedundantAnnotationIsIgnored() {
+    int length = 1;
+    int offset = 3;
+
+    manager.insertAnnotation(model, offset, length, createAliceTestUser());
+    manager.insertAnnotation(model, offset, length, createAliceTestUser());
+
+    assertEquals("Inserted same annotation twice", 1, getAnnotationCount(model));
+  }
+
   public void testInsertWhileNotEnable() {
     store.setValue(EclipsePreferenceConstants.SHOW_CONTRIBUTION_ANNOTATIONS, false);
 
     final User alice = new User(new JID("alice@test"), false, false, null);
-
-    final AnnotationModel model = new AnnotationModel();
 
     manager.insertAnnotation(model, 5, 7, alice);
 
@@ -252,12 +208,10 @@ public class ContributionAnnotationManagerTest {
 
     final List<User> users = new ArrayList<>();
 
-    users.add(new User(new JID("alice@test"), false, false, null));
-    users.add(new User(new JID("bob@test"), false, false, null));
+    users.add(createAliceTestUser());
+    users.add(createBobTestUser());
 
     int idx = 0;
-
-    final AnnotationModel model = new AnnotationModel();
 
     for (final User user : users)
       for (int i = 0; i < MAX_HISTORY_LENGTH; i++, idx++)
@@ -283,7 +237,7 @@ public class ContributionAnnotationManagerTest {
     return count;
   }
 
-  private List<Position> getAnnotationPositions(AnnotationModel model) {
+  private List<Position> getAnnotationPositions(IAnnotationModel model) {
 
     List<Position> positions = new ArrayList<Position>();
 
@@ -295,5 +249,25 @@ public class ContributionAnnotationManagerTest {
     }
 
     return positions;
+  }
+
+  private User createAliceTestUser() {
+    return createTestUser("alice@test");
+  }
+
+  private User createBobTestUser() {
+    return createTestUser("bob@test");
+  }
+
+  private User createCarlTestUser() {
+    return createTestUser("carl@test");
+  }
+
+  private User createDaveTestUser() {
+    return createTestUser("dave@test");
+  }
+
+  private User createTestUser(String jid) {
+    return new User(new JID(jid), false, false, null);
   }
 }
