@@ -5,9 +5,11 @@ import org.apache.log4j.Logger;
 import saros.activities.SPath;
 import saros.activities.TextEditActivity;
 import saros.concurrent.jupiter.Operation;
+import saros.editor.text.TextPositionUtils;
 import saros.filesystem.IPath;
 import saros.filesystem.IProject;
 import saros.session.User;
+import saros.test.util.OperationHelper;
 
 /**
  * this class represent a document object for testing.
@@ -66,17 +68,22 @@ public class Document {
   /**
    * Execute Operation on document state.
    *
-   * @param op
+   * @param op the operation to execute
    */
   public void execOperation(Operation op) {
     User dummy = JupiterTestCase.createUser("dummy");
 
     List<TextEditActivity> activities = op.toTextEdit(new SPath(project, path), dummy);
 
+    String lineSeparator = OperationHelper.LINE_SEPARATOR;
+
     for (TextEditActivity activity : activities) {
 
-      int start = activity.getOffset();
+      int start =
+          TextPositionUtils.calculateOffset(
+              doc.toString(), activity.getStartPosition(), lineSeparator);
       int end = start + activity.getReplacedText().length();
+
       String is = doc.toString().substring(start, end);
 
       if (!is.equals(activity.getReplacedText())) {
@@ -85,7 +92,7 @@ public class Document {
             "Text should be '" + activity.getReplacedText() + "' is '" + is + "'");
       }
 
-      doc.replace(start, end, activity.getText());
+      doc.replace(start, end, activity.getNewText());
     }
   }
 }
