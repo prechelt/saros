@@ -506,6 +506,11 @@ public class EditorAPI {
       return org.eclipse.jface.text.TextSelection.emptySelection();
     }
 
+    return calculateOffsetsBySelection(document, selection);
+  }
+
+  protected static ITextSelection calculateOffsetsBySelection(
+      IDocument document, TextSelection selection) {
     TextPosition startPosition = selection.getStartPosition();
     TextPosition endPosition = selection.getEndPosition();
 
